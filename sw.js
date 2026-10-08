@@ -1,5 +1,5 @@
 const BASE=new URL('./',self.location.href).href;
-const CACHE='project-monthly-github-v1-'+new URL(BASE).pathname;
+const CACHE='project-monthly-github-v2-'+new URL(BASE).pathname;
 const APP=BASE;const ASSETS=['manifest.webmanifest','icon-192.png','icon-512.png'].map(p=>new URL(p,BASE).href);
 self.addEventListener('install',()=>self.skipWaiting());
 self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));
