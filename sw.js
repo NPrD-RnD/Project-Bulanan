@@ -1,8 +1,38 @@
-const BASE=new URL('./',self.location.href).href;
-const CACHE='project-monthly-github-v2-'+new URL(BASE).pathname;
-const APP=BASE;const ASSETS=['manifest.webmanifest','icon-192.png','icon-512.png'].map(p=>new URL(p,BASE).href);
-self.addEventListener('install',()=>self.skipWaiting());
-self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));
-async function cacheApp(){const cache=await caches.open(CACHE);const res=await fetch(APP,{cache:'no-store',credentials:'same-origin'});if(res.ok&&!res.redirected&&(await res.clone().text()).includes('name="project-app" content="monthly-v1"')){await cache.put(APP,res);await Promise.all(ASSETS.map(async path=>{const r=await fetch(path);if(r.ok&&!r.redirected)await cache.put(path,r);}));}}
-self.addEventListener('message',e=>{if(e.data?.type==='CACHE_APP')e.waitUntil(cacheApp().catch(()=>{}));});
-self.addEventListener('fetch',e=>{const url=new URL(e.request.url);if(e.request.method!=='GET'||url.origin!==self.location.origin)return;const htmlPaths=[new URL(BASE).pathname,new URL('index.html',BASE).pathname];if(e.request.mode==='navigate'&&htmlPaths.includes(url.pathname)){e.respondWith((async()=>{try{const response=await fetch(e.request);if(response.ok&&!response.redirected&&(await response.clone().text()).includes('name="project-app" content="monthly-v1"'))await(await caches.open(CACHE)).put(APP,response.clone());return response;}catch{const cached=await(await caches.open(CACHE)).match(APP);return cached||new Response('Hubungkan internet untuk membuka Project Bulanan pertama kali.',{status:503,headers:{'Content-Type':'text/plain;charset=utf-8'}});}})());}else if(ASSETS.includes(url.href)){e.respondWith((async()=>await(await caches.open(CACHE)).match(e.request)||fetch(e.request))());}});
+'use strict';
+// Naikkan versi CACHE saat mengubah file yang disimpan offline.
+const CACHE = 'lab-sample-pages-v2';
+const SCOPE = self.registration.scope;
+const INDEX = new URL('index.html', SCOPE).href;
+const ASSETS = [SCOPE, INDEX];
+self.addEventListener('install', event => {
+  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)));
+});
+self.addEventListener('activate', event => {
+  event.waitUntil(caches.keys().then(keys => Promise.all(
+    keys.filter(key => key.startsWith('lab-sample-pages-') && key !== CACHE)
+      .map(key => caches.delete(key))
+  )).then(() => self.clients.claim()));
+});
+self.addEventListener('fetch', event => {
+  const url = new URL(event.request.url);
+  if (event.request.method !== 'GET' || !event.request.url.startsWith(SCOPE)) return;
+  const isPage = event.request.mode === 'navigate' &&
+    (url.href === SCOPE || url.pathname === new URL(INDEX).pathname);
+  if (!isPage && url.href !== INDEX) return;
+  event.respondWith((async () => {
+    const cache = await caches.open(CACHE);
+    try {
+      const response = await fetch(event.request);
+      if (response.ok) {
+        await cache.put(INDEX, response.clone());
+        return response;
+      }
+      const saved = await cache.match(INDEX);
+      return saved || response;
+    } catch (error) {
+      const saved = await cache.match(INDEX);
+      if (saved) return saved;
+      throw error;
+    }
+  })());
+});
